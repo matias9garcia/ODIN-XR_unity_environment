@@ -1,0 +1,4 @@
+repository "Primera_app_VR/ODIN-XR@4674116216574@cloud"
+  path "/"
+    br "/main"
+    co "/main"
