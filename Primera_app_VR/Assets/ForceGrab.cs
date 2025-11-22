@@ -6,78 +6,96 @@ public class ForceGrab : MonoBehaviour
     public OVRHand hand;
     
     [Header("Configuración del Objeto")]
-    public Transform targetObject; // Tu esfera
+    public Transform targetObject;
     public float speed = 5.0f;
     public float stopDistance = 0.1f;
 
+    [Header("Configuración del Gesto (PUÑO)")]
+    [Tooltip("Valor más bajo (0.4) para que detecte el puño aunque el tracking falle un poco")]
+    [Range(0.1f, 1.0f)]
+    public float umbralAgarrar = 0.4f; 
+
     [Header("Feedback Visual")]
-    public Color colorNormal = Color.blue; // Color en reposo
-    public Color colorActivo = Color.red;  // Color al pinchar
+    public Color colorNormal = Color.blue;
+    public Color colorActivo = Color.red;
+    
+    [Header("Herramientas")]
+    public bool mostrarValoresEnConsola = true; // Mantenlo activo para probar
     
     private Renderer targetRenderer; 
-    private bool isPinchingLastFrame = false; 
+    private bool isGrabbingLastFrame = false; 
 
     void Start()
     {
-        // Buscamos el Renderer para poder cambiar el color
         if (targetObject != null)
         {
             targetRenderer = targetObject.GetComponent<Renderer>();
-            if (targetRenderer != null)
-            {
-                targetRenderer.material.color = colorNormal;
-            }
+            if (targetRenderer != null) targetRenderer.material.color = colorNormal;
+        }
+        else
+        {
+            Debug.LogError("ERROR: No has asignado el 'Target Object' en el Inspector.");
+        }
+
+        if (hand == null)
+        {
+            Debug.LogError("ERROR: No has asignado la variable 'Hand' (OVRHand) en el Inspector.");
         }
     }
 
     void Update()
     {
-        if (hand.IsTracked)
+        // Verificamos que la mano esté detectada por las cámaras
+        if (hand != null && hand.IsTracked)
         {
-            // Detectamos si estás haciendo el gesto
-            bool isPinching = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+            bool isGrabbing = CheckIfGrabbing();
 
-            // Lógica de cambio de color (solo si el estado cambia)
-            if (isPinching != isPinchingLastFrame)
+            if (isGrabbing != isGrabbingLastFrame)
             {
-                UpdateObjectColor(isPinching);
-                isPinchingLastFrame = isPinching;
+                UpdateObjectColor(isGrabbing);
+                isGrabbingLastFrame = isGrabbing;
             }
 
-            // Si hay pinch, atraemos el objeto
-            if (isPinching)
+            if (isGrabbing)
             {
                 PullObject();
             }
         }
-        else 
+    }
+
+    bool CheckIfGrabbing()
+    {
+        // Obtenemos la fuerza de los 3 dedos principales
+        // Ignoramos el Meñique (Pinky) porque suele perderse al cerrar el puño
+        float index = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
+        float middle = hand.GetFingerPinchStrength(OVRHand.HandFinger.Middle);
+        float ring = hand.GetFingerPinchStrength(OVRHand.HandFinger.Ring);
+
+        // CONDICIÓN DE PUÑO ROBUSTA:
+        // Requerimos que Índice, Medio y Anular superen el umbral.
+        bool isFist = (index > umbralAgarrar) && (middle > umbralAgarrar) && (ring > umbralAgarrar);
+
+        // DEBUG: Esto te dirá exactamente por qué falla
+        if (mostrarValoresEnConsola)
         {
-            // Si se pierde el rastreo de la mano, aseguramos volver al color normal
-            if (isPinchingLastFrame)
-            {
-                UpdateObjectColor(false);
-                isPinchingLastFrame = false;
-            }
+            // Si uno de estos valores se queda en 0.00 cuando cierras la mano, 
+            // las gafas no están viendo ese dedo bien.
+            Debug.Log($"Puño: {isFist} || I:{index:F2} M:{middle:F2} A:{ring:F2}");
         }
+
+        return isFist;
     }
 
     void PullObject()
     {
         if (targetObject == null) return;
 
-        // Calculamos distancia
         float distance = Vector3.Distance(targetObject.position, hand.transform.position);
 
-        // Si está lejos, lo acercamos
         if (distance > stopDistance)
         {
-            targetObject.position = Vector3.MoveTowards(
-                targetObject.position, 
-                hand.transform.position, 
-                speed * Time.deltaTime
-            );
+            targetObject.position = Vector3.MoveTowards(targetObject.position, hand.transform.position, speed * Time.deltaTime);
             
-            // Desactivamos gravedad para que flote hacia ti
             Rigidbody rb = targetObject.GetComponent<Rigidbody>();
             if(rb != null) rb.useGravity = false;
         }
@@ -85,9 +103,6 @@ public class ForceGrab : MonoBehaviour
 
     void UpdateObjectColor(bool active)
     {
-        if (targetRenderer != null)
-        {
-            targetRenderer.material.color = active ? colorActivo : colorNormal;
-        }
+        if (targetRenderer != null) targetRenderer.material.color = active ? colorActivo : colorNormal;
     }
 }
