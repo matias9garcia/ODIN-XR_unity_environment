@@ -10,99 +10,128 @@ public class ForceGrab : MonoBehaviour
     public float speed = 5.0f;
     public float stopDistance = 0.1f;
 
-    [Header("Configuración del Gesto (PUÑO)")]
-    [Tooltip("Valor más bajo (0.4) para que detecte el puño aunque el tracking falle un poco")]
+    [Header("Configuración de Gestos")]
+    [Tooltip("Fuerza necesaria para detectar el PUÑO (0.1 a 1.0)")]
     [Range(0.1f, 1.0f)]
-    public float umbralAgarrar = 0.4f; 
+    public float umbralPuño = 0.4f; 
 
-    [Header("Feedback Visual")]
-    public Color colorNormal = Color.blue;
-    public Color colorActivo = Color.red;
+    [Header("Colores")]
+    public Color colorNormal = Color.blue;  // Estado base
+    public Color colorAlterno = Color.green; // Estado "Activado" por pellizco
+    public Color colorFuerza = Color.red;    // Estado mientras atraes (Puño)
     
-    [Header("Herramientas")]
-    public bool mostrarValoresEnConsola = true; // Mantenlo activo para probar
+    [Header("Debug")]
+    public bool mostrarValores = true;
     
     private Renderer targetRenderer; 
-    private bool isGrabbingLastFrame = false; 
+    
+    // Variables de Estado
+    private bool isGrabbingLastFrame = false;   // Para controlar el puño
+    private bool wasPinchingLastFrame = false;  // Para controlar el "clic" del pellizco
+    private bool isGreenState = false;          // ¿Está el objeto en modo verde?
 
     void Start()
     {
         if (targetObject != null)
         {
             targetRenderer = targetObject.GetComponent<Renderer>();
-            if (targetRenderer != null) targetRenderer.material.color = colorNormal;
-        }
-        else
-        {
-            Debug.LogError("ERROR: No has asignado el 'Target Object' en el Inspector.");
-        }
-
-        if (hand == null)
-        {
-            Debug.LogError("ERROR: No has asignado la variable 'Hand' (OVRHand) en el Inspector.");
+            ActualizarColor(false); // Inicia con el color base
         }
     }
 
     void Update()
     {
-        // Verificamos que la mano esté detectada por las cámaras
         if (hand != null && hand.IsTracked)
         {
-            bool isGrabbing = CheckIfGrabbing();
+            // 1. DETECTAR PUÑO (Para atraer)
+            bool isFist = CheckIfFist();
 
-            if (isGrabbing != isGrabbingLastFrame)
-            {
-                UpdateObjectColor(isGrabbing);
-                isGrabbingLastFrame = isGrabbing;
-            }
-
-            if (isGrabbing)
+            // Lógica de Atracción
+            if (isFist)
             {
                 PullObject();
+            }
+            
+            // Si el estado de agarre cambia (empiezas o terminas de hacer puño), actualizamos color
+            if (isFist != isGrabbingLastFrame)
+            {
+                ActualizarColor(isFist);
+                isGrabbingLastFrame = isFist;
+            }
+
+            // 2. DETECTAR PELLIZCO (Para cambiar color Verde/Azul)
+            // Solo revisamos el pellizco si NO estamos haciendo puño (para evitar conflictos)
+            if (!isFist) 
+            {
+                CheckPinchToggle();
             }
         }
     }
 
-    bool CheckIfGrabbing()
+    // --- Lógica del Puño (Atracción) ---
+    bool CheckIfFist()
     {
-        // Obtenemos la fuerza de los 3 dedos principales
-        // Ignoramos el Meñique (Pinky) porque suele perderse al cerrar el puño
+        // Usamos la lógica de 3 dedos que es más estable
         float index = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
         float middle = hand.GetFingerPinchStrength(OVRHand.HandFinger.Middle);
         float ring = hand.GetFingerPinchStrength(OVRHand.HandFinger.Ring);
 
-        // CONDICIÓN DE PUÑO ROBUSTA:
-        // Requerimos que Índice, Medio y Anular superen el umbral.
-        bool isFist = (index > umbralAgarrar) && (middle > umbralAgarrar) && (ring > umbralAgarrar);
-
-        // DEBUG: Esto te dirá exactamente por qué falla
-        if (mostrarValoresEnConsola)
-        {
-            // Si uno de estos valores se queda en 0.00 cuando cierras la mano, 
-            // las gafas no están viendo ese dedo bien.
-            Debug.Log($"Puño: {isFist} || I:{index:F2} M:{middle:F2} A:{ring:F2}");
-        }
-
+        bool isFist = (index > umbralPuño) && (middle > umbralPuño) && (ring > umbralPuño);
+        
+        if (mostrarValores) Debug.Log($"Puño: {isFist} | I:{index:F2} M:{middle:F2} A:{ring:F2}");
+        
         return isFist;
     }
 
     void PullObject()
     {
         if (targetObject == null) return;
-
+        
         float distance = Vector3.Distance(targetObject.position, hand.transform.position);
-
         if (distance > stopDistance)
         {
             targetObject.position = Vector3.MoveTowards(targetObject.position, hand.transform.position, speed * Time.deltaTime);
-            
             Rigidbody rb = targetObject.GetComponent<Rigidbody>();
             if(rb != null) rb.useGravity = false;
         }
     }
 
-    void UpdateObjectColor(bool active)
+    // --- Lógica del Pellizco (Interruptor de Color) ---
+    void CheckPinchToggle()
     {
-        if (targetRenderer != null) targetRenderer.material.color = active ? colorActivo : colorNormal;
+        // OVRHand tiene un booleano directo para saber si estás pellizcando
+        bool isPinching = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+
+        // LOGICA DE INTERRUPTOR (Solo actúa cuando el pellizco EMPIEZA)
+        if (isPinching && !wasPinchingLastFrame)
+        {
+            // Invertimos el estado (Si es false pasa a true, si es true pasa a false)
+            isGreenState = !isGreenState;
+            
+            // Actualizamos el color visualmente
+            ActualizarColor(false); // false porque NO estamos haciendo fuerza en este momento
+            
+            Debug.Log("Cambio de Color activado: " + (isGreenState ? "VERDE" : "AZUL"));
+        }
+
+        // Guardamos el estado para el siguiente frame
+        wasPinchingLastFrame = isPinching;
+    }
+
+    // --- Sistema de Colores Centralizado ---
+    void ActualizarColor(bool haciendoFuerza)
+    {
+        if (targetRenderer == null) return;
+
+        if (haciendoFuerza)
+        {
+            // Prioridad 1: Si haces fuerza, siempre es ROJO (indicador de acción)
+            targetRenderer.material.color = colorFuerza;
+        }
+        else
+        {
+            // Prioridad 2: Si está reposo, depende del interruptor (Verde o Azul)
+            targetRenderer.material.color = isGreenState ? colorAlterno : colorNormal;
+        }
     }
 }
