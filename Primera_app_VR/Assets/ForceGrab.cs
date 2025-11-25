@@ -2,6 +2,10 @@ using UnityEngine;
 
 public class ForceGrab : MonoBehaviour
 {
+    [Header("Conexión con Robot")]
+    // 1. Aquí arrastrarás el objeto que tiene el script BraccioNetwork
+    public BraccioNetwork braccioComunicador; // <--- NUEVO
+
     [Header("Configuración de Mano")]
     public OVRHand hand;
     
@@ -16,9 +20,9 @@ public class ForceGrab : MonoBehaviour
     public float umbralPuño = 0.4f; 
 
     [Header("Colores")]
-    public Color colorNormal = Color.blue;  // Estado base
-    public Color colorAlterno = Color.green; // Estado "Activado" por pellizco
-    public Color colorFuerza = Color.red;    // Estado mientras atraes (Puño)
+    public Color colorNormal = Color.blue;   // Estado base (Pinza Abierta)
+    public Color colorAlterno = Color.green; // Estado Activado (Pinza Cerrada)
+    public Color colorFuerza = Color.red;    // Estado Atrayendo
     
     [Header("Debug")]
     public bool mostrarValores = true;
@@ -26,16 +30,16 @@ public class ForceGrab : MonoBehaviour
     private Renderer targetRenderer; 
     
     // Variables de Estado
-    private bool isGrabbingLastFrame = false;   // Para controlar el puño
-    private bool wasPinchingLastFrame = false;  // Para controlar el "clic" del pellizco
-    private bool isGreenState = false;          // ¿Está el objeto en modo verde?
+    private bool isGrabbingLastFrame = false;   
+    private bool wasPinchingLastFrame = false;  
+    private bool isGreenState = false;          // TRUE = Verde (Cerrado) | FALSE = Azul (Abierto)
 
     void Start()
     {
         if (targetObject != null)
         {
             targetRenderer = targetObject.GetComponent<Renderer>();
-            ActualizarColor(false); // Inicia con el color base
+            ActualizarColor(false); 
         }
     }
 
@@ -43,24 +47,21 @@ public class ForceGrab : MonoBehaviour
     {
         if (hand != null && hand.IsTracked)
         {
-            // 1. DETECTAR PUÑO (Para atraer)
+            // 1. DETECTAR PUÑO
             bool isFist = CheckIfFist();
 
-            // Lógica de Atracción
             if (isFist)
             {
                 PullObject();
             }
             
-            // Si el estado de agarre cambia (empiezas o terminas de hacer puño), actualizamos color
             if (isFist != isGrabbingLastFrame)
             {
                 ActualizarColor(isFist);
                 isGrabbingLastFrame = isFist;
             }
 
-            // 2. DETECTAR PELLIZCO (Para cambiar color Verde/Azul)
-            // Solo revisamos el pellizco si NO estamos haciendo puño (para evitar conflictos)
+            // 2. DETECTAR PELLIZCO
             if (!isFist) 
             {
                 CheckPinchToggle();
@@ -68,10 +69,9 @@ public class ForceGrab : MonoBehaviour
         }
     }
 
-    // --- Lógica del Puño (Atracción) ---
+    // --- Lógica del Puño ---
     bool CheckIfFist()
     {
-        // Usamos la lógica de 3 dedos que es más estable
         float index = hand.GetFingerPinchStrength(OVRHand.HandFinger.Index);
         float middle = hand.GetFingerPinchStrength(OVRHand.HandFinger.Middle);
         float ring = hand.GetFingerPinchStrength(OVRHand.HandFinger.Ring);
@@ -96,41 +96,45 @@ public class ForceGrab : MonoBehaviour
         }
     }
 
-    // --- Lógica del Pellizco (Interruptor de Color) ---
+    // --- Lógica del Pellizco (EL INTERRUPTOR) ---
     void CheckPinchToggle()
     {
-        // OVRHand tiene un booleano directo para saber si estás pellizcando
         bool isPinching = hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
 
-        // LOGICA DE INTERRUPTOR (Solo actúa cuando el pellizco EMPIEZA)
         if (isPinching && !wasPinchingLastFrame)
         {
-            // Invertimos el estado (Si es false pasa a true, si es true pasa a false)
+            // Cambiamos el estado (Toggle)
             isGreenState = !isGreenState;
             
-            // Actualizamos el color visualmente
-            ActualizarColor(false); // false porque NO estamos haciendo fuerza en este momento
+            // Actualizamos color visual
+            ActualizarColor(false);
             
-            Debug.Log("Cambio de Color activado: " + (isGreenState ? "VERDE" : "AZUL"));
+            Debug.Log("Cambio de Estado: " + (isGreenState ? "ACTIVADO (Verde)" : "DESACTIVADO (Azul)"));
+
+            // ---------------------------------------------------------
+            // 2. AQUÍ ESTÁ EL PUENTE (CONEXIÓN CON BRACCIO)
+            // ---------------------------------------------------------
+            if (braccioComunicador != null)
+            {
+                // Si está Verde (isGreenState = true) -> isPinching = true (Cerrar pinza)
+                // Si está Azul (isGreenState = false) -> isPinching = false (Abrir pinza)
+                braccioComunicador.isPinching = isGreenState; // <--- NUEVO
+            }
         }
 
-        // Guardamos el estado para el siguiente frame
         wasPinchingLastFrame = isPinching;
     }
 
-    // --- Sistema de Colores Centralizado ---
     void ActualizarColor(bool haciendoFuerza)
     {
         if (targetRenderer == null) return;
 
         if (haciendoFuerza)
         {
-            // Prioridad 1: Si haces fuerza, siempre es ROJO (indicador de acción)
             targetRenderer.material.color = colorFuerza;
         }
         else
         {
-            // Prioridad 2: Si está reposo, depende del interruptor (Verde o Azul)
             targetRenderer.material.color = isGreenState ? colorAlterno : colorNormal;
         }
     }

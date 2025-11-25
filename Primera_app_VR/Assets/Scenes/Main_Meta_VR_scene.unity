@@ -2829,12 +2829,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304f7678db5cbda458eef8cdf2122e8a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  urlServidor: http://127.0.0.1:5000/api/braccio
+  intervaloEnvio: 0.1
   objetoA_Rastrear: {fileID: 816073694}
   objetoOrigen: {fileID: 373131522}
   textoAngulos: {fileID: 1195986456}
   d1_Base: 10
   L2_Brazo: 35
   L3_Antebrazo: 35
+  M5_Rotacion: 90
+  isPinching: 0
 --- !u!114 &899092860
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6492,6 +6496,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b2a1fd6dd87a5046b9255218d175273, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  braccioComunicador: {fileID: 899092859}
   hand: {fileID: 1398174281}
   targetObject: {fileID: 816073694}
   speed: 5
