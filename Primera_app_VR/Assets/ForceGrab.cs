@@ -4,7 +4,7 @@ public class ForceGrab : MonoBehaviour
 {
     [Header("Conexión con Robot")]
     // 1. Aquí arrastrarás el objeto que tiene el script BraccioNetwork
-    public BraccioNetwork braccioComunicador; // <--- NUEVO
+    public SolveIK_Network braccioComunicador; // <--- NUEVO
 
     [Header("Configuración de Mano")]
     public OVRHand hand;
