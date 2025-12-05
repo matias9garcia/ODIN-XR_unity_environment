@@ -207,7 +207,7 @@ public class SolveIK_Network : MonoBehaviour {
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            yield return request.SendWebRequest();
+            yield return request.SendWebRequest();  
         }
     }
 }

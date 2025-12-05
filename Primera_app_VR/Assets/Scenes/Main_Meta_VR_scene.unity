@@ -841,12 +841,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 158885867}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 65692758a5041dc43a1bde0601a87371, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  urlServidor: http://127.0.0.1:5000/api/braccio
+  urlServidor: http://10.108.233.30:5000/api/angulos_braccio
   intervaloEnvio: 0.1
   useIK: 1
   autoEnd: 1
@@ -3127,7 +3127,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 870379677}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5870e377500ae4a0e993f14891d6bd38, type: 3}
   m_Name: 
@@ -3205,9 +3205,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 304f7678db5cbda458eef8cdf2122e8a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  urlServidor: http://127.0.0.1:5000/api/braccio
+  urlServidor: http://10.108.232.185:5000/api/angulos_braccio
   intervaloEnvio: 0.1
-  objetoA_Rastrear: {fileID: 0}
+  objetoA_Rastrear: {fileID: 870379678}
   objetoOrigen: {fileID: 373131522}
   textoAngulos: {fileID: 1195986456}
   d1_Base: 10
