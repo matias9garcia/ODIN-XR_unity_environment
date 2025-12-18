@@ -32,7 +32,17 @@ public class SolveIK_Network : MonoBehaviour {
     [Header("--- Ajustes Brazo ---")]
     public float offsetHombro = 180f; 
     public float offsetCodo = 270f;
-    [Range(1f, 20f)] public float velocidadSuavizado = 10f; 
+    [Range(1f, 20f)] public float velocidadSuavizado = 10f;
+
+    [Header("--- Visuales Pinza ---")]
+    public Transform visualPinzaIzq;  // Arrastra aquí el objeto 'Pinza'
+    public Transform visualPinzaDer;  // Arrastra aquí el objeto 'Pinza_2'
+    public Vector3 ejeRotacionPinza = new Vector3(1, 0, 0); // Eje X por defecto (cambia a 0,0,1 si giran raro)
+    public float visualMultiplier = 1.0f; // Multiplicador por si el movimiento es muy corto visualmente
+
+    // NUEVAS VARIABLES PRIVADAS PARA GUARDAR LA ROTACIÓN INICIAL
+    private Quaternion _initialRotIzq;
+    private Quaternion _initialRotDer;
 
     // Salidas
     [Header("Salidas")]
@@ -65,6 +75,11 @@ public class SolveIK_Network : MonoBehaviour {
 
     void Start () {
         if (targetObj != null) _ultimaPosicionTarget = targetObj.position;
+
+        // --- NUEVO: Guardar la rotación inicial de las pinzas ---
+        if (visualPinzaIzq != null) _initialRotIzq = visualPinzaIzq.localRotation;
+        if (visualPinzaDer != null) _initialRotDer = visualPinzaDer.localRotation;
+        // -------------------------------------------------------
 
         if(arms[0] != null && arms[3] != null) {
             BASE_HGT = Vector3.Distance(arms[0].transform.position, arms[1].transform.position);
@@ -146,6 +161,24 @@ public class SolveIK_Network : MonoBehaviour {
         arms[2].transform.localRotation = Quaternion.Slerp(arms[2].transform.localRotation, Quaternion.Euler(0, 0, thetaElbow - 90), Time.deltaTime * velocidadSuavizado);
         arms[3].transform.localRotation = Quaternion.Slerp(arms[3].transform.localRotation, Quaternion.Euler(0, 0, thetaWristVertical - 90), Time.deltaTime * velocidadSuavizado);
         arms[4].transform.localRotation = Quaternion.Slerp(arms[4].transform.localRotation, Quaternion.Euler(0, thetaWristRotation, 0), Time.deltaTime * velocidadSuavizado);
+
+        // --- NUEVO CÓDIGO PARA LAS PINZAS ---
+        if (visualPinzaIzq != null && visualPinzaDer != null)
+        {
+            float anguloVisual = (thetaGripper - anguloAbierto) * visualMultiplier;
+
+            // Calculamos la rotación
+            Quaternion rotacionApertura = Quaternion.Euler(ejeRotacionPinza * anguloVisual);
+
+            // APLICAMOS LA MISMA ROTACIÓN A AMBAS
+            // Al estar la PinzaDer girada 180º, su eje Z (o el que uses) apunta al lado contrario,
+            // por lo que al aplicar la misma rotación positiva, visualmente girará al revés.
+            
+            visualPinzaIzq.localRotation = Quaternion.Slerp(visualPinzaIzq.localRotation, _initialRotIzq * rotacionApertura, Time.deltaTime * velocidadSuavizado);
+            
+            // CAMBIO AQUÍ: Usamos 'rotacionApertura' normal, NO Inverse.
+            visualPinzaDer.localRotation = Quaternion.Slerp(visualPinzaDer.localRotation, _initialRotDer * rotacionApertura, Time.deltaTime * velocidadSuavizado);
+        }
     }
 
     void SetArm(float x, float y, float z, bool endHorizontal) {
