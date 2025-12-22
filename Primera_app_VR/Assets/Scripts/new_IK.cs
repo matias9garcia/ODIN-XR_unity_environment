@@ -7,11 +7,11 @@ using System.Collections;
 public class SolveIK_Network : MonoBehaviour {
 
     [Header("--- Configuración de Red ---")]
-    public string urlServidor = "http://127.0.0.1:5000/api/braccio";
+    public string urlServidor = "http://127.0.0.1:5000/api/angulos_braccio";
 
     [Header("--- Configuración IK ---")]
     public bool useIK = true;
-    public bool autoEnd = true; 
+    public bool autoEnd = true;
     public Transform targetObj; 
 
     [Header("--- Control de Envío (API) ---")]
@@ -21,16 +21,14 @@ public class SolveIK_Network : MonoBehaviour {
     [Header("--- UI Debug ---")]
     public TMP_Text textoAngulos;
 
-    [Header("--- Gripper ---")]
+    [Header("--- Gripper (Pinza) ---")]
     public bool isPinching = false; 
     public float longitudPinza = 0.10f; 
-    // Ajustado a tu solicitud: Cerrado = 10, Abierto = 73
     [Range(10, 73)] public float anguloAbierto = 73f; 
     [Range(10, 73)] public float anguloCerrado = 10f; 
 
     [Header("--- Ajustes Brazo ---")]
-    public float offsetHombro = 180f; 
-    public float offsetCodo = 270f;
+    // Nota: El cálculo antiguo usa offsets fijos implícitos
     [Range(1f, 20f)] public float velocidadSuavizado = 10f; 
 
     [Header("--- Visuales Pinza ---")]
@@ -39,15 +37,15 @@ public class SolveIK_Network : MonoBehaviour {
     public Vector3 ejeRotacionPinza = new Vector3(1, 0, 0); 
     public float visualMultiplier = 1.0f; 
 
-    // Variables Privadas
+    // Variables Privadas Visuales
     private Quaternion _initialRotIzq;
     private Quaternion _initialRotDer;
     
     // Control de estado
     private bool _ultimoEstadoPinching; 
 
-    // Salidas
-    [Header("Salidas")]
+    // --- SALIDAS (Ángulos) ---
+    [Header("Salidas Calculadas")]
     [Range(0, 180)] public float thetaBase = 90f;          
     [Range(0, 180)] public float thetaShoulder = 90f;      
     [Range(0, 180)] public float thetaElbow = 90f;         
@@ -56,6 +54,8 @@ public class SolveIK_Network : MonoBehaviour {
     [Range(10, 73)] public float thetaGripper = 10f;       
 
     public GameObject[] arms = new GameObject[5]; 
+    
+    // Variables Matemáticas
     private float BASE_HGT, HUMERUS, ULNA, hum_sq, uln_sq;
     private int _estadoPinzaLogico = 1;
 
@@ -65,6 +65,7 @@ public class SolveIK_Network : MonoBehaviour {
     private bool _datosEnviados = false;
     private string _estadoTextoDebug = ""; 
 
+    // Estructura JSON
     [Serializable]
     private struct BraccioData {
         public long timestamp;
@@ -72,19 +73,23 @@ public class SolveIK_Network : MonoBehaviour {
     }
 
     void Start () {
+        // Inicialización de Targets y Visuales
         if (targetObj != null) _ultimaPosicionTarget = targetObj.position;
-
         if (visualPinzaIzq != null) _initialRotIzq = visualPinzaIzq.localRotation;
         if (visualPinzaDer != null) _initialRotDer = visualPinzaDer.localRotation;
         
         _ultimoEstadoPinching = isPinching;
 
+        // --- CALIBRACIÓN ---
         if(arms[0] != null && arms[3] != null) {
             BASE_HGT = Vector3.Distance(arms[0].transform.position, arms[1].transform.position);
             HUMERUS = Vector3.Distance(arms[1].transform.position, arms[2].transform.position);
             ULNA = Vector3.Distance(arms[2].transform.position, arms[3].transform.position);
+            
+            // Protección mínima
             if (HUMERUS < 0.001f) HUMERUS = 0.125f;
             if (ULNA < 0.001f) ULNA = 0.125f;
+            
             hum_sq = HUMERUS*HUMERUS;
             uln_sq = ULNA*ULNA;
         }
@@ -93,10 +98,132 @@ public class SolveIK_Network : MonoBehaviour {
     void Update () {
         if (targetObj == null || arms[0] == null) return;
         
+        // 1. Calcular IK (Con matemática ajustada a 360)
         ProcesarIK(); 
+        
+        // 2. Mover Visuales Unity
         ActualizarVisualesBrazo();
 
-        // 1. Detección de cambio de PINZA (Prioridad)
+        // 3. Lógica de Red y UI
+        GestionarRedYUI();
+    }
+
+    // ---------------------------------------------------------
+    //   LÓGICA HÍBRIDA: PREPARACIÓN DE DATOS
+    // ---------------------------------------------------------
+    void ProcesarIK() {
+        if (!useIK) return;
+
+        // Calculamos la posición local relativa a la base
+        Vector3 localTarget = (arms[0].transform.parent != null) ? 
+            arms[0].transform.parent.InverseTransformPoint(targetObj.position) : 
+            targetObj.position - arms[0].transform.position;
+
+        // Compensación de Pinza
+        Vector3 directionToTarget = new Vector3(localTarget.x, 0, localTarget.z).normalized;
+        // Protección contra vector cero si el target está justo encima
+        if (directionToTarget == Vector3.zero) directionToTarget = Vector3.forward;
+
+        Vector3 wristTarget = localTarget - (directionToTarget * longitudPinza);
+
+        // Llamamos al calculador con la lógica mejorada
+        SetArm_360Logic(wristTarget.x, wristTarget.y, wristTarget.z, autoEnd);
+
+        // Gestión del Ángulo de la Pinza (M6)
+        if (isPinching) { thetaGripper = anguloCerrado; _estadoPinzaLogico = 0; } 
+        else { thetaGripper = anguloAbierto; _estadoPinzaLogico = 1; }
+    }
+
+    // ---------------------------------------------------------
+    //   CÁLCULO IK CON SOPORTE 360° (Modificado)
+    // ---------------------------------------------------------
+    void SetArm_360Logic(float x, float y, float z, bool endHorizontal) {
+        // 1. Ángulo Base (M1)
+        float bas_angle_r = Mathf.Atan2(x, z);
+        float bas_angle_d = bas_angle_r * Mathf.Rad2Deg + 90f;
+        
+        // Normalización a 0-360
+        if (bas_angle_d < 0) bas_angle_d += 360f;
+
+        // Detección "IsBackwards" (Si el target está detrás)
+        bool isBackwards = false;
+        if (bas_angle_d > 180f) {
+            isBackwards = true;
+            bas_angle_d -= 180f; // Giramos la base para mirar "hacia atrás"
+        }
+
+        // --- Cálculos Geométricos (Teorema del Coseno) ---
+        float wrt_y = y - BASE_HGT; // Altura muñeca relativa
+        float s_w = x * x + z * z + wrt_y * wrt_y; // Distancia al cuadrado
+        float s_w_sqrt = Mathf.Sqrt(s_w);
+
+        // 2. Ángulo Codo (M3)
+        float cosAngleElbow = (hum_sq + uln_sq - s_w) / (2f * HUMERUS * ULNA);
+        float elb_angle_r = Mathf.Acos(Mathf.Clamp(cosAngleElbow, -1f, 1f));
+        float elb_angle_d = 270f - elb_angle_r * Mathf.Rad2Deg;
+
+        // 3. Ángulo Hombro (M2) - Cálculo base
+        float a1 = Mathf.Atan2(wrt_y, Mathf.Sqrt(x * x + z * z));
+        float cosAngleShoulder = (hum_sq + s_w - uln_sq) / (2f * HUMERUS * s_w_sqrt);
+        float a2 = Mathf.Acos(Mathf.Clamp(cosAngleShoulder, -1f, 1f));
+        float shl_angle_r = a1 + a2;
+        float shl_angle_d = 180f - shl_angle_r * Mathf.Rad2Deg; 
+
+        // --- ASIGNACIÓN DE SALIDAS (Aplicando Inversión si es Backwards) ---
+        
+        // BASE
+        thetaBase = Mathf.Clamp(bas_angle_d, 0f, 180f);
+
+        // HOMBRO: Si estamos hacia atrás, invertimos el ángulo
+        float finalShoulder = shl_angle_d;
+        if (isBackwards) finalShoulder = 180f - shl_angle_d;
+        
+        if (!float.IsNaN(finalShoulder))
+            thetaShoulder = Mathf.Clamp(finalShoulder, 0f, 180f);
+
+        // CODO: Se mantiene (la geometría relativa del brazo no cambia)
+        if (!float.IsNaN(elb_angle_d))
+            thetaElbow = Mathf.Clamp(elb_angle_d, 0f, 180f);
+
+        // 4. Ángulo Muñeca Vertical (M4)
+        if (endHorizontal) {
+            // Ángulo ideal mirando al frente
+            float wr_ang = 90f + (shl_angle_d - 90f) + (elb_angle_d - 90f);
+            
+            // Si estamos hacia atrás, invertimos la muñeca para mantener el horizonte
+            if (isBackwards) wr_ang = 180f - wr_ang;
+            
+            thetaWristVertical = Mathf.Clamp(wr_ang, 0f, 180f);
+        }
+        else {
+            thetaWristVertical = 90f; 
+        }
+    }
+
+    // ---------------------------------------------------------
+    //   VISUALES (Visualización Suavizada en Unity)
+    // ---------------------------------------------------------
+    void ActualizarVisualesBrazo() {
+        arms[0].transform.localRotation = Quaternion.Slerp(arms[0].transform.localRotation, Quaternion.Euler(0, thetaBase, 0), Time.deltaTime * velocidadSuavizado);
+        arms[1].transform.localRotation = Quaternion.Slerp(arms[1].transform.localRotation, Quaternion.Euler(0, 0, thetaShoulder - 90), Time.deltaTime * velocidadSuavizado);
+        arms[2].transform.localRotation = Quaternion.Slerp(arms[2].transform.localRotation, Quaternion.Euler(0, 0, thetaElbow - 90), Time.deltaTime * velocidadSuavizado);
+        arms[3].transform.localRotation = Quaternion.Slerp(arms[3].transform.localRotation, Quaternion.Euler(0, 0, thetaWristVertical - 90), Time.deltaTime * velocidadSuavizado);
+        arms[4].transform.localRotation = Quaternion.Slerp(arms[4].transform.localRotation, Quaternion.Euler(0, thetaWristRotation, 0), Time.deltaTime * velocidadSuavizado);
+
+        // Visuales de la Pinza
+        if (visualPinzaIzq != null && visualPinzaDer != null) {
+            float anguloVisual = (thetaGripper - anguloAbierto) * visualMultiplier;
+            Quaternion rotacionApertura = Quaternion.Euler(ejeRotacionPinza * anguloVisual);
+            visualPinzaIzq.localRotation = Quaternion.Slerp(visualPinzaIzq.localRotation, _initialRotIzq * rotacionApertura, Time.deltaTime * velocidadSuavizado);
+            visualPinzaDer.localRotation = Quaternion.Slerp(visualPinzaDer.localRotation, _initialRotDer * rotacionApertura, Time.deltaTime * velocidadSuavizado);
+        }
+    }
+
+    // ---------------------------------------------------------
+    //   RED Y UI (Lógica de Envío y Debug)
+    // ---------------------------------------------------------
+    void GestionarRedYUI() {
+        // Detección de cambio de PINZA
         if (isPinching != _ultimoEstadoPinching) {
             StartCoroutine(EnviarDatosPOST());
             _ultimoEstadoPinching = isPinching;
@@ -104,7 +231,7 @@ public class SolveIK_Network : MonoBehaviour {
             _estadoTextoDebug = "<color=#00FF00><b>ACCION PINZA ENVIADA</b></color>";
         }
 
-        // 2. Detección de MOVIMIENTO
+        // Detección de MOVIMIENTO
         float distancia = Vector3.Distance(targetObj.position, _ultimaPosicionTarget);
 
         if (distancia > umbralMovimiento) {
@@ -128,93 +255,23 @@ public class SolveIK_Network : MonoBehaviour {
             }
         }
         
-        // --- ACTUALIZACIÓN UI ---
+        // ACTUALIZACIÓN UI TMP
         if (textoAngulos != null) {
-            // Lógica de la Segunda Línea (Estado Pinza)
             string textoEstadoPinza;
-            if (isPinching)
-                textoEstadoPinza = $"<color=black><b>Cerrado ({(int)anguloCerrado}°)</b></color>";
-            else
-                textoEstadoPinza = $"<color=black>Abierto ({(int)anguloAbierto}°)</color>";
+            if (isPinching) textoEstadoPinza = $"<color=black><b>Abierto ({(int)anguloCerrado}°)</b></color>"; 
+            else textoEstadoPinza = $"<color=black>Cerrado ({(int)anguloAbierto}°)</color>";
 
             textoAngulos.text = 
                 $"{_estadoTextoDebug}\n" + 
-                $"ESTADO: {textoEstadoPinza}\n" + // Segunda línea modificada
+                $"ESTADO: {textoEstadoPinza}\n" + 
                 $"----------------\n" +
                 $"M1 (Base):   <b>{(int)thetaBase}°</b>\n" +
                 $"M2 (Hombro): <b>{(int)thetaShoulder}°</b>\n" +
                 $"M3 (Codo):   <b>{(int)thetaElbow}°</b>\n" +
                 $"M4 (Muñ V):  <b>{(int)thetaWristVertical}°</b>\n" +
                 $"M5 (Muñ R):  <b>{(int)thetaWristRotation}°</b>\n" +
-                $"M6 (Pinza):  <b>{(int)thetaGripper}°</b>"; // M6 devuelto al original
+                $"M6 (Pinza):  <b>{(int)thetaGripper}°</b>"; 
         }
-    }
-
-    void ProcesarIK() {
-        if (!useIK) return;
-        Vector3 localTarget = (arms[0].transform.parent != null) ? 
-            arms[0].transform.parent.InverseTransformPoint(targetObj.position) : 
-            targetObj.position - arms[0].transform.position;
-        Vector3 dir = localTarget.normalized;
-        if (dir == Vector3.zero) dir = Vector3.up;
-        Vector3 wristTarget = localTarget - (dir * longitudPinza);
-        float maxReach = (HUMERUS + ULNA) - 0.001f;
-        if (wristTarget.magnitude > maxReach) wristTarget = wristTarget.normalized * maxReach;
-
-        SetArm(wristTarget.x, wristTarget.y, wristTarget.z, autoEnd);
-
-        if (isPinching) { thetaGripper = anguloCerrado; _estadoPinzaLogico = 0; } 
-        else { thetaGripper = anguloAbierto; _estadoPinzaLogico = 1; }
-    }
-
-    void ActualizarVisualesBrazo() {
-        arms[0].transform.localRotation = Quaternion.Slerp(arms[0].transform.localRotation, Quaternion.Euler(0, thetaBase, 0), Time.deltaTime * velocidadSuavizado);
-        arms[1].transform.localRotation = Quaternion.Slerp(arms[1].transform.localRotation, Quaternion.Euler(0, 0, thetaShoulder - 90), Time.deltaTime * velocidadSuavizado);
-        arms[2].transform.localRotation = Quaternion.Slerp(arms[2].transform.localRotation, Quaternion.Euler(0, 0, thetaElbow - 90), Time.deltaTime * velocidadSuavizado);
-        arms[3].transform.localRotation = Quaternion.Slerp(arms[3].transform.localRotation, Quaternion.Euler(0, 0, thetaWristVertical - 90), Time.deltaTime * velocidadSuavizado);
-        arms[4].transform.localRotation = Quaternion.Slerp(arms[4].transform.localRotation, Quaternion.Euler(0, thetaWristRotation, 0), Time.deltaTime * velocidadSuavizado);
-        if (visualPinzaIzq != null && visualPinzaDer != null) {
-            float anguloVisual = (thetaGripper - anguloAbierto) * visualMultiplier;
-            Quaternion rotacionApertura = Quaternion.Euler(ejeRotacionPinza * anguloVisual);
-            visualPinzaIzq.localRotation = Quaternion.Slerp(visualPinzaIzq.localRotation, _initialRotIzq * rotacionApertura, Time.deltaTime * velocidadSuavizado);
-            visualPinzaDer.localRotation = Quaternion.Slerp(visualPinzaDer.localRotation, _initialRotDer * rotacionApertura, Time.deltaTime * velocidadSuavizado);
-        }
-    }
-
-    void SetArm(float x, float y, float z, bool endHorizontal) {
-        float maxReach = HUMERUS + ULNA - 0.001f;
-        float distSq = x*x + y*y + z*z;
-        if (distSq > maxReach * maxReach) {
-            float scale = maxReach / Mathf.Sqrt(distSq);
-            x *= scale; y *= scale; z *= scale;
-        }
-        float r_abs = Mathf.Sqrt(x*x + z*z);
-        if (r_abs < 0.05f) r_abs = 0.05f;
-        float rawAngle = Mathf.Atan2(x, z) * Mathf.Rad2Deg + 90f;
-        if (rawAngle < 0) rawAngle += 360f; 
-        bool isBackwards = false;
-        float baseFinal = rawAngle;
-        if (rawAngle > 180f) { isBackwards = true; baseFinal = rawAngle - 180f; }
-        thetaBase = Mathf.Clamp(baseFinal, 0f, 180f);
-        float dy = y - BASE_HGT;
-        float hypSq = r_abs*r_abs + dy*dy; 
-        float hyp = Mathf.Sqrt(hypSq);
-        float cElb = (hum_sq + uln_sq - hypSq) / (2 * HUMERUS * ULNA);
-        cElb = Mathf.Clamp(cElb, -1.0f, 1.0f);
-        float thetaElbowIdeal = offsetCodo - Mathf.Acos(cElb) * Mathf.Rad2Deg;
-        float angleElev = Mathf.Atan2(dy, r_abs); 
-        float cShl = (hum_sq + hypSq - uln_sq) / (2 * HUMERUS * hyp);
-        cShl = Mathf.Clamp(cShl, -1.0f, 1.0f);
-        float thetaShoulderIdeal = offsetHombro - (angleElev + Mathf.Acos(cShl)) * Mathf.Rad2Deg;
-        if (!isBackwards) { thetaShoulder = thetaShoulderIdeal; thetaElbow = thetaElbowIdeal; } 
-        else { thetaShoulder = 180f - thetaShoulderIdeal; thetaElbow = thetaElbowIdeal; }
-        if (endHorizontal) {
-            float wr_ang = 90f + (thetaShoulder - 90f) + (thetaElbow - 90f);
-            if (isBackwards) wr_ang = 180f - wr_ang; 
-            thetaWristVertical = Mathf.Clamp(wr_ang, 0f, 180f);
-        }
-        if(float.IsNaN(thetaShoulder)) thetaShoulder = 90f;
-        if(float.IsNaN(thetaElbow)) thetaElbow = 90f;
     }
 
     IEnumerator EnviarDatosPOST() {
