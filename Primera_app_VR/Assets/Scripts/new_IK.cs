@@ -138,61 +138,50 @@ public class SolveIK_Network : MonoBehaviour {
     //   CÁLCULO IK CON SOPORTE 360° (Modificado)
     // ---------------------------------------------------------
     void SetArm_360Logic(float x, float y, float z, bool endHorizontal) {
-        // 1. Ángulo Base (M1)
-        float bas_angle_r = Mathf.Atan2(x, z);
-        float bas_angle_d = bas_angle_r * Mathf.Rad2Deg + 90f;
-        
-        // Normalización a 0-360
-        if (bas_angle_d < 0) bas_angle_d += 360f;
+        // 1. Base en 0-360 y mapeo a 0-180 del servo
+        float bas360 = Mathf.Atan2(x, z) * Mathf.Rad2Deg + 90f;
+        if (bas360 < 0f) bas360 += 360f;
 
-        // Detección "IsBackwards" (Si el target está detrás)
-        bool isBackwards = false;
-        if (bas_angle_d > 180f) {
-            isBackwards = true;
-            bas_angle_d -= 180f; // Giramos la base para mirar "hacia atrás"
-        }
+        bool isBackwards = bas360 > 180f;
+        float bas180 = isBackwards ? bas360 - 180f : bas360;
+        thetaBase = Mathf.Clamp(bas180, 0f, 180f);
 
-        // --- Cálculos Geométricos (Teorema del Coseno) ---
+        // 2. Reproyectamos el objetivo al "frente" para reutilizar la misma solución de cosenos
+        float effX = isBackwards ? -x : x;
+        float effZ = isBackwards ? -z : z;
+
         float wrt_y = y - BASE_HGT; // Altura muñeca relativa
-        float s_w = x * x + z * z + wrt_y * wrt_y; // Distancia al cuadrado
-        float s_w_sqrt = Mathf.Sqrt(s_w);
+        float planar = Mathf.Sqrt(effX * effX + effZ * effZ);
+        float s_w = effX * effX + effZ * effZ + wrt_y * wrt_y; // Distancia al cuadrado
+        float s_w_sqrt = Mathf.Max(Mathf.Sqrt(s_w), 1e-4f);
 
-        // 2. Ángulo Codo (M3)
+        // 3. Ángulo Codo (M3) por ley de cosenos
         float cosAngleElbow = (hum_sq + uln_sq - s_w) / (2f * HUMERUS * ULNA);
-        float elb_angle_r = Mathf.Acos(Mathf.Clamp(cosAngleElbow, -1f, 1f));
-        float elb_angle_d = 270f - elb_angle_r * Mathf.Rad2Deg;
+        cosAngleElbow = Mathf.Clamp(cosAngleElbow, -1f, 1f);
+        float elb_angle_d = 270f - Mathf.Acos(cosAngleElbow) * Mathf.Rad2Deg;
 
-        // 3. Ángulo Hombro (M2) - Cálculo base
-        float a1 = Mathf.Atan2(wrt_y, Mathf.Sqrt(x * x + z * z));
+        // 4. Ángulo Hombro (M2) por ley de cosenos
+        float a1 = Mathf.Atan2(wrt_y, planar);
         float cosAngleShoulder = (hum_sq + s_w - uln_sq) / (2f * HUMERUS * s_w_sqrt);
-        float a2 = Mathf.Acos(Mathf.Clamp(cosAngleShoulder, -1f, 1f));
-        float shl_angle_r = a1 + a2;
-        float shl_angle_d = 180f - shl_angle_r * Mathf.Rad2Deg; 
+        cosAngleShoulder = Mathf.Clamp(cosAngleShoulder, -1f, 1f);
+        float a2 = Mathf.Acos(cosAngleShoulder);
+        float shl_angle_d = 180f - (a1 + a2) * Mathf.Rad2Deg; 
 
-        // --- ASIGNACIÓN DE SALIDAS (Aplicando Inversión si es Backwards) ---
-        
-        // BASE
-        thetaBase = Mathf.Clamp(bas_angle_d, 0f, 180f);
+        float finalShoulder = isBackwards ? 180f - shl_angle_d : shl_angle_d;
 
-        // HOMBRO: Si estamos hacia atrás, invertimos el ángulo
-        float finalShoulder = shl_angle_d;
-        if (isBackwards) finalShoulder = 180f - shl_angle_d;
-        
         if (!float.IsNaN(finalShoulder))
             thetaShoulder = Mathf.Clamp(finalShoulder, 0f, 180f);
 
-        // CODO: Se mantiene (la geometría relativa del brazo no cambia)
-        if (!float.IsNaN(elb_angle_d))
-            thetaElbow = Mathf.Clamp(elb_angle_d, 0f, 180f);
+        if (!float.IsNaN(elb_angle_d)) {
+            // Cuando miramos "atrás" invertimos el codo para evitar la pose plegada
+            float elbowForServo = isBackwards ? 180f - elb_angle_d : elb_angle_d;
+            thetaElbow = Mathf.Clamp(elbowForServo, 0f, 180f);
+        }
 
-        // 4. Ángulo Muñeca Vertical (M4)
+        // 5. Ángulo Muñeca Vertical (M4)
         if (endHorizontal) {
-            // Ángulo ideal mirando al frente
             float wr_ang = 90f + (shl_angle_d - 90f) + (elb_angle_d - 90f);
-            
-            // Si estamos hacia atrás, invertimos la muñeca para mantener el horizonte
             if (isBackwards) wr_ang = 180f - wr_ang;
-            
             thetaWristVertical = Mathf.Clamp(wr_ang, 0f, 180f);
         }
         else {
