@@ -931,7 +931,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65692758a5041dc43a1bde0601a87371, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  urlServidor: http://127.0.0.1:5000/api/braccio
+  urlServidor: http://127.0.0.1:5000/api/angulos_braccio
   useIK: 1
   autoEnd: 1
   targetObj: {fileID: 870379678}
@@ -942,8 +942,6 @@ MonoBehaviour:
   longitudPinza: 0.1
   anguloAbierto: 10
   anguloCerrado: 73
-  offsetHombro: 210
-  offsetCodo: 180
   velocidadSuavizado: 10
   visualPinzaIzq: {fileID: 1023752246}
   visualPinzaDer: {fileID: 2053129791}
@@ -7430,7 +7428,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b2a1fd6dd87a5046b9255218d175273, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  braccioComunicador: {fileID: 0}
+  braccioComunicador: {fileID: 158885869}
   esferaIK: {fileID: 870379678}
   pivoteCentral: {fileID: 373131522}
   radioMaximo: 0.5
