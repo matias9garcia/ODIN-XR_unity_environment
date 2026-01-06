@@ -73,6 +73,9 @@ public class SolveIK_Network : MonoBehaviour {
     }
 
     void Start () {
+        // --- NUEVO: FORZAR INICIO ABIERTO ---
+        isPinching = false;              // Asegura que la lógica empiece como "no pellizcando"
+        thetaGripper = anguloAbierto;    // Pone el ángulo visual inmediatamente en abierto (evita que empiece en 0 o cerrado)
         // Inicialización de Targets y Visuales
         if (targetObj != null) _ultimaPosicionTarget = targetObj.position;
         if (visualPinzaIzq != null) _initialRotIzq = visualPinzaIzq.localRotation;
@@ -247,8 +250,11 @@ public class SolveIK_Network : MonoBehaviour {
         // ACTUALIZACIÓN UI TMP
         if (textoAngulos != null) {
             string textoEstadoPinza;
-            if (isPinching) textoEstadoPinza = $"<color=black><b>Abierto ({(int)anguloCerrado}°)</b></color>"; 
-            else textoEstadoPinza = $"<color=black>Cerrado ({(int)anguloAbierto}°)</color>";
+            // Corrección sugerida para la UI
+            if (isPinching) 
+                textoEstadoPinza = $"<color=black><b>Cerrado ({(int)anguloCerrado}°)</b></color>"; // Pinching = Cerrado
+            else 
+                textoEstadoPinza = $"<color=black>Abierto ({(int)anguloAbierto}°)</color>";      // !Pinching = Abierto
 
             textoAngulos.text = 
                 $"{_estadoTextoDebug}\n" + 
