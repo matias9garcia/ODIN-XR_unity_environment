@@ -25,14 +25,15 @@ public class CoordenadasRelativas : MonoBehaviour
         // Usamos la posicionRelativa calculada arriba, no la mundial.
         float x_cm = posicionRelativa.x * 100f;
         float y_cm = posicionRelativa.y * 100f;
-        float z_cm = posicionRelativa.z * 100f;
+        float z_cm = -posicionRelativa.z * 100f;
 
         // 3. Formateamos el texto
         string formato = mostrarDecimales ? "F1" : "F0";
 
-        textoMundial.text = $"COORDENADAS RELATIVAS (CM)\n" +
-                            $"X: {x_cm.ToString(formato)}\n" +
-                            $"Y: {y_cm.ToString(formato)}\n" +
-                            $"Z: {z_cm.ToString(formato)}";
+        textoMundial.text = $"<color=#A020F0>RELATIVE COORDINATES OF SPHERE (CM)</color>\n" +
+                            $"<color=#A020F0>X: {x_cm.ToString(formato),8} cm</color>\n" +
+                            $"<color=#A020F0>Y: {y_cm.ToString(formato),8} cm</color>\n" +
+                            $"<color=#A020F0>Z: {z_cm.ToString(formato),8} cm</color>";
+        textoMundial.color = new Color(0.627f, 0.125f, 0.941f, 1f);
     }
 }

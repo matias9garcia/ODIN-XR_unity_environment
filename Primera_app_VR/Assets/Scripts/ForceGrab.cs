@@ -3,8 +3,8 @@ using UnityEngine;
 public class ForceGrab : MonoBehaviour
 {
     [Header("1. Conexión con el Robot")]
-    [Tooltip("Arrastra aquí el objeto ROBOT que tiene el script 'SolveIK_Network'")]
-    public SolveIK_Network braccioComunicador; 
+    [Tooltip("Arrastra aquí el script BraccioController que orquesta el brazo")]
+    public BraccioController braccioController; 
 
     [Header("2. Referencia de la Esfera")]
     [Tooltip("Arrastra aquí tu 'IKControl' o la Esfera Roja que el robot sigue")]
@@ -27,32 +27,17 @@ public class ForceGrab : MonoBehaviour
 
     [Header("Configuración de Gestos")]
     [Range(0.1f, 1.0f)]
-    public float umbralPuño = 0.4f; 
-
-    [Header("Feedback Visual (Colores)")]
-    public Color colorNormal = Color.blue;   
-    public Color colorAlterno = Color.green; 
-    public Color colorFuerza = Color.red;    
+    public float umbralPuño = 0.4f;    
     
     [Header("Debug")]
     public bool mostrarValores = true;
     
-    private Renderer esferaRenderer; 
     private bool isGrabbingLastFrame = false;   
-    private bool wasPinchingLastFrame = false;  
-    private bool isGreenState = false; 
+    private bool wasPinchingLastFrame = false; 
 
     void Start()
     {
-        if (esferaIK != null)
-        {
-            esferaRenderer = esferaIK.GetComponent<Renderer>();
-            ActualizarColor(false); 
-        }
-        else
-        {
-            Debug.LogError("ForceGrab: ¡No has asignado la variable 'esferaIK' en el Inspector!");
-        }
+        // Inicializar estado
     }
 
     void Update()
@@ -64,12 +49,6 @@ public class ForceGrab : MonoBehaviour
             if (isFist)
             {
                 AtraerEsfera(); 
-            }
-            
-            if (isFist != isGrabbingLastFrame)
-            {
-                ActualizarColor(isFist);
-                isGrabbingLastFrame = isFist;
             }
 
             if (!isFist) 
@@ -122,23 +101,14 @@ public class ForceGrab : MonoBehaviour
 
         if (isPinching && !wasPinchingLastFrame)
         {
-            isGreenState = !isGreenState;
-            ActualizarColor(false);
-            Debug.Log("Click! Pinza: " + (isGreenState ? "CERRANDO" : "ABRIENDO"));
+            Debug.Log("Click! Pinza: " + (isPinching ? "CERRANDO" : "ABRIENDO"));
 
-            if (braccioComunicador != null)
+            if (braccioController != null)
             {
-                braccioComunicador.isPinching = isGreenState;
+                braccioController.isPinching = !braccioController.isPinching;
             }
         }
         wasPinchingLastFrame = isPinching;
-    }
-
-    void ActualizarColor(bool haciendoFuerza)
-    {
-        if (esferaRenderer == null) return;
-        if (haciendoFuerza) esferaRenderer.material.color = colorFuerza; 
-        else esferaRenderer.material.color = isGreenState ? colorAlterno : colorNormal;
     }
 
     // ---------------------------------------------------------
