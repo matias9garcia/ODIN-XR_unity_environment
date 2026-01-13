@@ -588,6 +588,111 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 46244470}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &49243298
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 49243299}
+  - component: {fileID: 49243303}
+  - component: {fileID: 49243302}
+  - component: {fileID: 49243301}
+  m_Layer: 0
+  m_Name: Ansuz
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &49243299
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49243298}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: 0.06062596, z: -0, w: 0.99816054}
+  m_LocalPosition: {x: 0.241, y: -1.433, z: 3.428}
+  m_LocalScale: {x: 0.05, y: 0.015767, z: 0.05}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 148955371}
+  m_LocalEulerAnglesHint: {x: 0, y: 6.951, z: 0}
+--- !u!65 &49243301
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49243298}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 0
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!23 &49243302
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49243298}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 73275517f2a0fb149aa3f9e1e919c348, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &49243303
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49243298}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!1001 &100545125
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -880,8 +985,9 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2070379227}
   - {fileID: 295069242}
+  - {fileID: 2070379227}
+  - {fileID: 49243299}
   - {fileID: 870379678}
   - {fileID: 1008594353}
   m_Father: {fileID: 0}
@@ -935,7 +1041,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65692758a5041dc43a1bde0601a87371, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  urlServidor: http://127.0.0.1:5000/api/angulos_braccio
+  urlServidor: https://dustin-unedible-bethany.ngrok-free.dev/api/angulos_braccio
   useIK: 1
   autoEnd: 1
   targetObj: {fileID: 870379678}
@@ -2516,8 +2622,8 @@ Transform:
   m_GameObject: {fileID: 295069238}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.33989075, y: -1.1912258, z: 3.2777805}
-  m_LocalScale: {x: 0.15, y: 0.15, z: 0.15}
+  m_LocalPosition: {x: -0.33989078, y: -1.1912258, z: 3.2777805}
+  m_LocalScale: {x: 0.14999998, y: 0.15, z: 0.14999998}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 148955371}
@@ -2534,7 +2640,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 495fb51858ecdac458a1b52e635eaf3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  apiUrl: http://10.108.231.187:5000/api/posicion
+  ansuzRuneTransform: {fileID: 49243299}
+  movimientoSensibilidad: 1
+  suavizado: 10
+  apiUrl: https://dustin-unedible-bethany.ngrok-free.dev/api/posicion
 --- !u!1 &373131521
 GameObject:
   m_ObjectHideFlags: 0
