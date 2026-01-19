@@ -74,6 +74,9 @@ public class BraccioIK : MonoBehaviour {
     public void CalcularIK(Vector3 targetGlobalPosition, bool isPinching, Quaternion targetRotation) {
         if (baseTransform == null) return;
 
+        // La rotación del motor 5 se deja fija; el parámetro targetRotation se conserva por compatibilidad.
+        _ = targetRotation;
+
         // 1. Convertir la posición global del Target a local respecto a la base del robot
         // Esto es crucial para que el robot funcione aunque lo rotes o muevas en la escena.
         Vector3 localTarget = (baseTransform.parent != null) ? 
@@ -91,11 +94,8 @@ public class BraccioIK : MonoBehaviour {
 
         Vector3 wristTarget = localTarget - (directionToTarget * longitudPinzaLocal);
 
-        // Extraer rotación Y del target (yaw) para la muñeca
-        float targetYaw = targetRotation.eulerAngles.y;
-
         // 3. Ejecutar la matemática pura
-        ResolverMatematica360(wristTarget.x, wristTarget.y, wristTarget.z, autoEnd, targetYaw);
+        ResolverMatematica360(wristTarget.x, wristTarget.y, wristTarget.z, autoEnd);
 
         // 4. Gestionar ángulo de la pinza
         if (isPinching) {
@@ -108,7 +108,7 @@ public class BraccioIK : MonoBehaviour {
     }
 
     // Lógica matemática interna (Tu SetArm_360Logic original, adaptada)
-    private void ResolverMatematica360(float x, float y, float z, bool endHorizontal, float targetYaw) {
+    private void ResolverMatematica360(float x, float y, float z, bool endHorizontal) {
         // A. Base
         float bas360 = Mathf.Atan2(x, z) * Mathf.Rad2Deg + 90f;
         if (bas360 < 0f) bas360 += 360f;
@@ -157,8 +157,8 @@ public class BraccioIK : MonoBehaviour {
             ThetaWristVertical = 90f;
         }
         
-        // M5 (Rotación muñeca) - Basada en la rotación Y del target
-        ThetaWristRotation = Mathf.Clamp(targetYaw, 0f, 180f); 
+        // M5 (Rotación muñeca) fija en 90°
+        ThetaWristRotation = 90f; 
     }
 
     // Escala efectiva usada para convertir magnitudes horizontales (X/Z) de mundo a espacio local de referencia
